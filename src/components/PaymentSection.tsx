@@ -17,6 +17,11 @@ function IbanCheck({ iban }: { iban: string }) {
   return <Check tone="err">✗ IBAN ei läpäise tarkistusta – tarkista numero.</Check>;
 }
 
+const BARCODE_SIZES = [
+  { value: 'large', label: 'Suuri – helpompi skannata (156 × 20 mm)' },
+  { value: 'standard', label: 'Vakio – pankkiviivakoodi-oppaan mukainen (104 × 12,7 mm)' }
+];
+
 function BarcodeCheck({ form, invoices }: { form: InvoiceForm; invoices: Invoice[] }) {
   const first = invoices[0];
   if (!first) return <Check tone="warn">Pankkiviivakoodi muodostetaan, kun vastaanottajia on lisätty.</Check>;
@@ -67,12 +72,25 @@ export function PaymentSection({ form, onChange, invoices }: PaymentSectionProps
       </label>
 
       {form.barcode && <BarcodeCheck form={form} invoices={invoices} />}
+
       {form.barcode && (
-        <p className="hint">
-          Viivakoodi luetaan tulosteesta normaalisti. Näytöltä skannattaessa zoomaa PDF vähintään
-          200 prosenttiin – täydessä A4-koossa palkit ovat liian tiheitä puhelimen kameralle.
-          Virtuaaliviivakoodin numerosarja tulostuu laskulle ja on myös CSV-viennissä.
-        </p>
+        <>
+          <div className="grid">
+            <Field
+              label="Viivakoodin koko"
+              value={form.barcodeSize}
+              options={BARCODE_SIZES}
+              onChange={(v) => onChange('barcodeSize', v as InvoiceForm['barcodeSize'])}
+            />
+          </div>
+          <p className="hint">
+            {form.barcodeSize === 'large'
+              ? 'Suuri koodi on laatikon levyinen, jolloin palkit ovat puolitoista kertaa leveämmät ja lukeutuvat selvästi helpommin – myös näytöltä noin 130 prosentin zoomilla. Koodi on leveämpi kuin pankkiviivakoodi-oppaan 105 mm, mikä voi haitata pankin maksuautomaatissa mutta ei puhelinsovelluksissa.'
+              : 'Vakiokoko noudattaa pankkiviivakoodi-oppaan mittoja (104 × 12,7 mm). Tulosteesta se luetaan hyvin, mutta näytöltä skannattaessa PDF pitää zoomata noin 200 prosenttiin.'}
+            {' '}Virtuaaliviivakoodin numerosarja tulostuu laskulle joka tapauksessa, ja sen voi kopioida
+            verkkopankkiin ilman skannausta.
+          </p>
+        </>
       )}
     </Card>
   );

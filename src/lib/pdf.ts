@@ -1,5 +1,5 @@
 import type { jsPDF } from 'jspdf';
-import type { Invoice, InvoiceConfig, Logo } from './types.js';
+import type { BarcodeSize, Invoice, InvoiceConfig, Logo } from './types.js';
 import { money } from './format.js';
 import { refPretty } from './reference.js';
 import { barsOf, code128c } from './code128.js';
@@ -16,11 +16,25 @@ const GRAY: [number, number, number] = [110, 118, 130];
 const INK: [number, number, number] = [25, 28, 34];
 const BOX_FILL: [number, number, number] = [246, 248, 251];
 const RULE: [number, number, number] = [215, 220, 228];
-const BARCODE_W = 104;
-const BARCODE_H = 12.7;
-const BARCODE_QUIET = 4;
+/* Code 128 vaatii hiljaisen alueen, jonka leveys on vähintään 10 moduulia. */
+const BARCODE_QUIET_MODULES = 10;
 const BARCODE_TEXT_H = 10;
-const BARCODE_BLOCK = BARCODE_TEXT_H + BARCODE_H + 2 * BARCODE_QUIET + 2;
+const BARCODE_MODULES = 332;
+
+const quietZone = (width: number): number => (width / BARCODE_MODULES) * BARCODE_QUIET_MODULES;
+
+/* Vakiokoko noudattaa pankkiviivakoodi-opasta (leveys 70-105 mm, korkeus 10-12,7 mm).
+   Suuri koko rikkoo leveysrajan mutta kasvattaa moduulin 0,31 mm:stä 0,49 mm:iin,
+   jolloin puhelimen kamera lukee koodin selvästi matalammalta tarkkuudelta. */
+const BARCODE_SIZES = {
+  standard: { width: 104, height: 12.7 },
+  large: { width: 156, height: 20 }
+} as const;
+
+const barcodeBlockHeight = (size: BarcodeSize): number => {
+  const { width, height } = BARCODE_SIZES[size];
+  return BARCODE_TEXT_H + height + 2 * quietZone(width) + 2;
+};
 
 const pageNumber = (doc: jsPDF): number => doc.getCurrentPageInfo().pageNumber;
 
@@ -176,7 +190,7 @@ function drawPaymentBox(doc: jsPDF, cfg: InvoiceConfig, invoice: Invoice, top: n
   ];
   const rowsHeight = Math.ceil(rows.length / 2) * 11;
   const noteHeight = cfg.payNote.trim() ? 7 : 0;
-  const height = 14 + rowsHeight + noteHeight + (invoice.barcode ? BARCODE_BLOCK : 0);
+  const height = 14 + rowsHeight + noteHeight + (invoice.barcode ? barcodeBlockHeight(cfg.barcodeSize) : 0);
   const boxY = Math.max(fitOnPage(doc, top, height), CONTENT_BOTTOM - height);
 
   doc.setFillColor(...BOX_FILL);
@@ -212,7 +226,7 @@ function drawPaymentBox(doc: jsPDF, cfg: InvoiceConfig, invoice: Invoice, top: n
   if (invoice.barcode) {
     const barcodeTop = afterRows + noteHeight;
     drawBarcodeNumber(doc, invoice.barcode, barcodeTop);
-    drawBarcode(doc, invoice.barcode, barcodeTop + BARCODE_TEXT_H);
+    drawBarcode(doc, invoice.barcode, barcodeTop + BARCODE_TEXT_H, cfg.barcodeSize);
   }
 }
 
@@ -226,17 +240,19 @@ function drawBarcodeNumber(doc: jsPDF, code: string, top: number): void {
   doc.text(barcodePretty(code), M + 6, top + 5);
 }
 
-function drawBarcode(doc: jsPDF, code: string, top: number): void {
+function drawBarcode(doc: jsPDF, code: string, top: number, size: BarcodeSize): void {
+  const { width, height } = BARCODE_SIZES[size];
   const modules = code128c(code);
-  const moduleWidth = BARCODE_W / modules.length;
-  const left = (A4.w - BARCODE_W) / 2;
+  const moduleWidth = width / modules.length;
+  const quiet = quietZone(width);
+  const left = (A4.w - width) / 2;
 
   doc.setFillColor(255, 255, 255);
-  doc.rect(left - BARCODE_QUIET, top - BARCODE_QUIET, BARCODE_W + 2 * BARCODE_QUIET, BARCODE_H + 2 * BARCODE_QUIET, 'F');
+  doc.rect(left - quiet, top - quiet, width + 2 * quiet, height + 2 * quiet, 'F');
 
   doc.setFillColor(0, 0, 0);
   for (const bar of barsOf(modules, moduleWidth)) {
-    doc.rect(left + bar.x, top, bar.width, BARCODE_H, 'F');
+    doc.rect(left + bar.x, top, bar.width, height, 'F');
   }
 }
 

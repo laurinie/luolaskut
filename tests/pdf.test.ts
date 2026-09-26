@@ -39,7 +39,8 @@ const cfg: InvoiceConfig = {
   dueDate: '25.9.2026',
   payNote: 'Viivästyskorko 7 %',
   logoPos: 'right',
-  logoW: 45
+  logoW: 45,
+  barcodeSize: 'standard'
 };
 
 const invoice = (over: Partial<Invoice> = {}): Invoice => ({
@@ -147,16 +148,70 @@ test('virtuaaliviivakoodi tulostuu myös numeroina', () => {
   assert.match(text, /42112 34560 00007/, 'numerosarja viiden ryhmissä');
 });
 
-test('viivakoodin ympärillä on valkoinen hiljainen alue', () => {
+test('hiljainen alue on vähintään 10 moduulia molemmin puolin', () => {
+  const code = '421123456000007850000525000000000000000202600017260925';
+
+  for (const [size, barHeight, barcodeWidth] of [['standard', 12.7, 104], ['large', 20, 156]] as const) {
+    const quiet = (barcodeWidth / 332) * 10;
+    const doc = createDoc();
+    drawInvoice(doc, invoice({ barcode: code }), { ...cfg, barcodeSize: size }, null);
+
+    const plates = barRects(doc, barHeight + 2 * quiet);
+    assert.equal(plates.length, 1, `${size}: yksi valkoinen tausta`);
+
+    const bars = barRects(doc, barHeight);
+    const plate = plates[0]!;
+    const left = (bars[0]!.x - plate.x) / MM_TO_PT;
+    const last = bars[bars.length - 1]!;
+    const right = (plate.x + plate.width - (last.x + last.width)) / MM_TO_PT;
+
+    assert.ok(left >= quiet - 0.01, `${size}: vasen hiljainen alue ${left.toFixed(2)} mm >= ${quiet.toFixed(2)} mm`);
+    assert.ok(right >= quiet - 0.01, `${size}: oikea hiljainen alue ${right.toFixed(2)} mm >= ${quiet.toFixed(2)} mm`);
+  }
+});
+
+test('suuri viivakoodi on leveämpi ja korkeampi kuin vakiokoko', () => {
+  const code = '421123456000007850000525000000000000000202600017260925';
+
+  const standard = createDoc();
+  drawInvoice(standard, invoice({ barcode: code }), cfg, null);
+  const standardBars = barRects(standard, 12.7);
+
+  const large = createDoc();
+  drawInvoice(large, invoice({ barcode: code }), { ...cfg, barcodeSize: 'large' }, null);
+  const largeBars = barRects(large, 20);
+
+  assert.equal(standardBars.length, largeBars.length, 'sama määrä palkkeja');
+
+  const width = (bars: Array<{ x: number; width: number }>) =>
+    bars[bars.length - 1]!.x + bars[bars.length - 1]!.width - bars[0]!.x;
+  assert.ok(width(largeBars) >= width(standardBars) * 1.5, 'suuri on vähintään 1,5-kertainen');
+
+  const narrowest = (bars: Array<{ width: number }>) => Math.min(...bars.map((bar) => bar.width));
+  assert.ok(narrowest(largeBars) >= narrowest(standardBars) * 1.45, 'kapein palkki kasvaa samassa suhteessa');
+});
+
+test('valkoinen tausta mahtuu maksutietolaatikon sisään', () => {
   const code = '421123456000007850000525000000000000000202600017260925';
   const doc = createDoc();
-  drawInvoice(doc, invoice({ barcode: code }), cfg, null);
+  drawInvoice(doc, invoice({ barcode: code }), { ...cfg, barcodeSize: 'large' }, null);
 
-  const plates = barRects(doc, 12.7 + 8);
-  assert.equal(plates.length, 1, 'yksi valkoinen tausta');
+  const plate = barRects(doc, 20 + 2 * (156 / 332) * 10)[0]!;
+  const left = plate.x / MM_TO_PT;
+  const right = (plate.x + plate.width) / MM_TO_PT;
+  assert.ok(left > 18, `tausta alkaa ${left.toFixed(1)} mm, laatikko 18 mm`);
+  assert.ok(right < 210 - 18, `tausta päättyy ${right.toFixed(1)} mm, laatikko 192 mm`);
+});
 
-  const bars = barRects(doc, 12.7);
-  const plate = plates[0]!;
-  assert.ok(plate.x < bars[0]!.x, 'tausta alkaa ennen ensimmäistä palkkia');
-  assert.ok(plate.x + plate.width > bars[bars.length - 1]!.x + bars[bars.length - 1]!.width);
+test('kumpikin koko pysyy sivun marginaalien sisällä', () => {
+  const code = '421123456000007850000525000000000000000202600017260925';
+  for (const [size, height] of [['standard', 12.7], ['large', 20]] as const) {
+    const doc = createDoc();
+    drawInvoice(doc, invoice({ barcode: code }), { ...cfg, barcodeSize: size }, null);
+    const bars = barRects(doc, height);
+    const left = bars[0]!.x / MM_TO_PT;
+    const right = (bars[bars.length - 1]!.x + bars[bars.length - 1]!.width) / MM_TO_PT;
+    assert.ok(left >= 18, `${size}: vasen reuna ${left.toFixed(1)} mm`);
+    assert.ok(right <= 210 - 18, `${size}: oikea reuna ${right.toFixed(1)} mm`);
+  }
 });

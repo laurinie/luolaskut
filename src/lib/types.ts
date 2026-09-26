@@ -30,9 +30,12 @@ export interface InvoiceConfig {
   payNote: string;
   logoPos: LogoPosition;
   logoW: number;
+  barcodeSize: BarcodeSize;
 }
 
 export type LogoPosition = 'right' | 'left' | 'banner';
+
+export type BarcodeSize = 'standard' | 'large';
 
 export interface Logo {
   dataUrl: string;

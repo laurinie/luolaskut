@@ -1,4 +1,4 @@
-import type { Invoice, InvoiceConfig, LogoPosition, Recipient, RefMode, ReferenceOptions } from './types.js';
+import type { BarcodeSize, Invoice, InvoiceConfig, LogoPosition, Recipient, RefMode, ReferenceOptions } from './types.js';
 import { BOM, csvField, fmtDate } from './format.js';
 import { invoiceItems, parseLineItems } from './recipients.js';
 import { ibanPrettyOrEmpty, referenceFor } from './reference.js';
@@ -24,6 +24,7 @@ export interface InvoiceForm {
   logoPos: LogoPosition;
   logoW: string;
   barcode: boolean;
+  barcodeSize: BarcodeSize;
 }
 
 export const DEMO_MEMBERS = `Nimi;Sähköposti;Summa
@@ -54,7 +55,8 @@ export function defaultForm(today = new Date()): InvoiceForm {
     sharedRef: '2026 00013',
     logoPos: 'right',
     logoW: '45',
-    barcode: true
+    barcode: true,
+    barcodeSize: 'large'
   };
 }
 
@@ -76,7 +78,8 @@ export const configOf = (form: InvoiceForm): InvoiceConfig => ({
   dueDate: fmtDate(form.dueDate),
   payNote: form.payNote,
   logoPos: form.logoPos,
-  logoW: Number(form.logoW) || 45
+  logoW: Number(form.logoW) || 45,
+  barcodeSize: form.barcodeSize
 });
 
 export const referenceOptionsOf = (form: InvoiceForm): ReferenceOptions => ({

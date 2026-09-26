@@ -25,11 +25,20 @@ lähde koneelta mihinkään.
   - *Yhteinen viite* – sama viite kaikille. Jos annat pelkän rungon, tarkiste lisätään automaattisesti.
 - **Pankkiviivakoodi**: laskuun piirretään Code 128C -viivakoodi ja CSV-vientiin lisätään
   54-merkkinen virtuaaliviivakoodi (versio 4) Finanssiala ry:n pankkiviivakoodi-oppaan mukaisesti.
-  Viivakoodi on 104 mm leveä ja 12,7 mm korkea (opas sallii 70–105 mm ja 10–12,7 mm), ja se
-  piirretään valkoiselle pohjalle, jotta hiljaiset alueet säilyvät. Sama numerosarja tulostuu
-  laskulle myös luettavana tekstinä viiden numeron ryhmissä. Vaatii
-  suomalaisen IBANin, viitenumeron ja summan alle 1 000 000 € – muuten sovellus kertoo syyn
-  eikä piirrä koodia.
+  Sama numerosarja tulostuu laskulle luettavana tekstinä, jolloin sen voi kopioida verkkopankkiin
+  ilman skannausta. Vaatii suomalaisen IBANin, viitenumeron ja summan alle 1 000 000 € – muuten
+  sovellus kertoo syyn eikä piirrä koodia.
+- **Viivakoodin koko** on valittavissa:
+
+  | | leveys × korkeus | kapein palkki | lukeutuu |
+  |---|---|---|---|
+  | Suuri (oletus) | 156 × 20 mm | 0,47 mm | 100 dpi asti |
+  | Vakio | 104 × 12,7 mm | 0,31 mm | 150 dpi asti |
+
+  Vakiokoko noudattaa oppaan mittoja (70–105 mm, 10–12,7 mm). Suuri ylittää leveysrajan, mikä voi
+  haitata pankin maksuautomaatissa mutta ei puhelinsovelluksissa – ja se lukeutuu selvästi
+  helpommin sekä tulosteesta että näytöltä. Hiljainen alue on molemmilla 10 moduulia Code 128
+  -vaatimuksen mukaisesti.
 - **Tulosteet**: esikatselu selaimessa, yksi PDF jossa jokainen lasku omana sivuna,
   tai ZIP jossa oma PDF per vastaanottaja (`1001_Matti_Meikalainen.pdf`) + `laskut.csv`.
 - **CSV-vienti**: `nimi;sahkoposti;laskunumero;viite;summa;erapaiva` – kätevä sähköpostien
@@ -132,10 +141,11 @@ npm run check     # build + testit
 ## Huomioita
 
 - Viitenumeron pituus on 4–20 numeroa, eli etuliite + juokseva numero saa olla enintään 19 numeroa.
-- **Viivakoodin lukeminen**: koodi on tarkoitettu tulosteelle. Testasin valmiin PDF:n
-  zxing-cpp-lukijalla: se lukee koodin oikein 150 dpi:stä ylöspäin, mutta ei enää 120 dpi:ssä.
-  Näytöltä skannattaessa PDF kannattaa siis zoomata noin 200 prosenttiin. Spesifikaatio rajaa
-  leveyden 105 millimetriin, joten moduulia ei voi kasvattaa tätä suuremmaksi.
+- **Viivakoodin lukeminen** on mitattu rasteroimalla valmis PDF ja lukemalla se zxing-cpp:llä.
+  Suuri koko lukeutuu 100 dpi:hin asti, vakiokoko 150 dpi:hin. Näytöltä skannattaessa PDF
+  kannattaa silti zoomata (suurella noin 130 %, vakiolla noin 200 %), sillä A4 näkyy täydessä
+  koossa noin 96 dpi:n tarkkuudella. Suomalaiset pankkisovellukset lukevat nimenomaan
+  viivakoodin – QR-koodia ne eivät tue, joten sellaista ei ole.
 - Pankkiviivakoodin Code 128C -koodaus on omaa koodia (`src/lib/code128.ts`), ja testit vertaavat
   sen tuotosta jsbarcode-kirjastoon 50 satunnaisella koodilla. Lisäksi yksi testi lukee valmiin
   PDF:n sisältövirrasta piirretyt palkit takaisin moduulijonoksi ja vertaa sitä koodaukseen.
